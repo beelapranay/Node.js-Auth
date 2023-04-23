@@ -1,5 +1,6 @@
 const User = require('../model/User')
 
+//Register Function
 exports.register = async (req, res, next) => {
     const {username, password} = req.body
 
@@ -23,6 +24,7 @@ exports.register = async (req, res, next) => {
     }
 }
 
+//Login Function
 exports.login = async (req, res, next) => {
     const {username, password} = req.body
 
@@ -52,4 +54,72 @@ exports.login = async (req, res, next) => {
             error: error.message
         })
     }
+}
+
+//Update Function
+exports.update = async (req, res, next) => {
+    const {role, id} = req.body
+
+    if(role && id) {
+        if(role === 'admin') {
+            await User.findById(id)
+                .then(async (user) => {
+                    if(user.role !== 'admin') {
+                        user.role = role
+                        await user.save()
+                        res.status(201).json({
+                                message: "Update successful!",
+                                user
+                            })
+                        //     (err) => {
+                        //     if(err) {
+                        //         res.status(400).json({
+                        //             message: "An error occurred!",
+                        //             error: err.message
+                        //         })
+                        //         process.exit(1)
+                        //     }
+                        //     res.status(201).json({
+                        //         message: "Update successful!",
+                        //         user
+                        //     })
+                        // }
+                        // )
+                    } else {
+                        res.status(400).json({
+                            message: "User is already an admin!"
+                        })
+                    }
+                })
+                .catch((error) => {
+                    res.status(400).json({
+                        message: "An error occurred!",
+                        error: error.message
+                    })
+                })
+        } else {
+            res.status(400).json({
+                message: "An error occurred!"
+            })
+        }
+    } 
+}
+
+exports.deleteUser = async (req, res, next) => {
+    const {id} = req.body
+
+    await User.findById(id)
+        .then(user => user.deleteOne())
+        .then(user =>
+            res.status(201).json({
+                message: "User successfully deleted",
+                user
+            })
+        )
+        .catch(error => 
+            res.status(400).json({
+                message: "An error occurred!",
+                error: error.message
+            })
+        )
 }
