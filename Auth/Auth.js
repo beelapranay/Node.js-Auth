@@ -1,4 +1,8 @@
+const bcrypt = require('bcryptjs')
+const dotenv = require('dotenv')
+
 const User = require('../model/User')
+dotenv.config()
 
 //Register Function
 exports.register = async (req, res, next) => {
@@ -8,20 +12,47 @@ exports.register = async (req, res, next) => {
         return res.status(400).json({message: "Password has to be greater than 6 characters!"})
     }
 
-    try {
+    bcrypt.hash(password, 10).then(async (hash) => {
         await User.create({
             username,
-            password
-        }).then(user => res.status(200).json({
-            message: "User has been created",
-            user
-        }))
-    } catch(err) {
-        res.status(401).json({
-            message: "User has not been created!",
-            error: err.message
+            password: hash
         })
-    }
+        .then((user) => {
+            const maxAge = 3 * 60 * 60
+            const token = jwt.sign(
+                {id: user._id, username, role: user.role},
+                process.env.STRING,
+                {expiresIn: maxAge}
+            )
+            res.cookie("jwt", token, {
+                httpOnly: true,
+                maxAge: maxAge * 1000
+            })
+            res.status(201).json({
+                message: "Registration Successful",
+                user: user._id
+            })
+        })
+        .catch((error) => res.status(400).json({
+            message: "An error occurred!",
+            error: error.message
+        }))
+    })
+
+    // try {
+    //     await User.create({
+    //         username,
+    //         password
+    //     }).then(user => res.status(200).json({
+    //         message: "User has been created",
+    //         user
+    //     }))
+    // } catch(err) {
+    //     res.status(401).json({
+    //         message: "User has not been created!",
+    //         error: err.message
+    //     })
+    // }
 }
 
 //Login Function
@@ -30,27 +61,49 @@ exports.login = async (req, res, next) => {
 
     if(!username || !password) {
         return res.status(400).json({
-            message: "Username/Password is wrong!"
+            message: "Username/Password not present!"
         })
     }
 
     try {
-        const user = await User.findOne({username, password})
+        const user = await User.findOne({username})
 
         if(!user) {
             res.status(401).json({
-                message: "Login not successful!",
+                message: "Login Failed!",
                 error: "User not found!"
             })
         } else {
-            res.status(200).json({
-                message: "Login successful!",
-                user
+            bcrypt.compare(password, user.password).then((result) => {
+                if(result) {
+                    const maxAge = 3 * 60 * 60
+                    const token = jwt.sign(
+                        {id: user._id, username, role: user.role},
+                        process.env.STRING,
+                        {expiresIn: maxAge}
+                    )
+                    res.cookie("jwt", token, {
+                        httpOnly: true,
+                        maxAge: maxAge * 1000
+                    })
+                    res.status(201).json({
+                        message: "Login Successful",
+                        user: user._id
+                    })
+                } else {
+                    res.status(400).json({
+                        message: "Login Failed!"
+                    })
+                }
             })
+            // res.status(200).json({
+            //     message: "Login successful!",
+            //     user
+            // })
         }
     } catch (error) {
         res.status(400).json({
-            message: "Error occurred!",
+            message: "An Error occurred!",
             error: error.message
         })
     }
